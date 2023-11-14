@@ -1,0 +1,14 @@
+{
+    "files.associations": {
+        "led_strip_encoder.h": "c",
+        "string.h": "c",
+        "freertos.h": "c",
+        "task.h": "c",
+        "rmt_tx.h": "c",
+        "stdint.h": "c",
+        "led_matrix.h": "c",
+        "rmt_encoder.h": "c",
+        "esp_check.h": "c",
+        "esp_log.h": "c"
+    }
+}
