@@ -1,5 +1,6 @@
 #include "led_matrix.h"
 #include <stdint.h>
+#include <stdint.h>
 #include <string.h>
 #include "led_strip_encoder.h"
 #include "esp_log.h"
@@ -12,7 +13,7 @@
 
 static const char *TAG = "led_matrix_component";
 
-// FIXME: Дописать функцию для цветового сдвига по HUE кругу
+// FIXME:Дописать функцию для цветового сдвига по HUE кругу
 // // Проход по всем рядам и плавное изменение цвета от рядя к ряду (Зацикленное)
 // while (1) {
 //     for (int i = 0; i < LED_PER_COL; i++) {
@@ -124,12 +125,16 @@ rmt_transmit_config_t tx_config = {
 };
 
 int led_numbers = 0;
+int led_per_col = 0;
+int led_per_row = 0;
 
 /**
  * Init function
 */
-void init_matrix(int gpio_num, int led_per_col, int led_per_row)
+void init_matrix(int gpio_num, int led_rows, int led_columns)
 {
+    led_per_col = led_columns;
+    led_per_row = led_rows;
     led_numbers = led_per_col * led_per_row;
     pled_strip_pixels = (uint8_t*)malloc(led_numbers * sizeof(uint8_t));
 
@@ -159,26 +164,43 @@ void init_matrix(int gpio_num, int led_per_col, int led_per_row)
     memset(pled_strip_pixels, 0, led_numbers * sizeof(uint8_t)); // FIXME: добавить метод destroy с освобождением этой памяти
 }
 
+void traverse_matrix(uint8_t * p_pixels, led_callback_t callback, int chase_speed) {
+    for (int i = 0; i < led_per_row; i++) {
+        int cell = i * led_per_row;
+        for (int j = 0; j < led_per_col; j++) {
+            int led = cell + j;
+            callback(p_pixels, led);
+            vTaskDelay(pdMS_TO_TICKS(chase_speed));
+        }
+    }
+}
+
+uint8_t brightness = 0;
+uint8_t brightness_dir = 1;
+uint8_t brightness_blue = 0;
+uint8_t brightness_blue_dir = 1;
+uint8_t increase = 2;
+
+void crimson_azure_flow_cb(uint8_t * p_pixels, int led_index) {
+    set_pixel_color(p_pixels, led_index, brightness, 0, brightness_blue);
+    ESP_ERROR_CHECK(rmt_transmit(led_chan, led_encoder, p_pixels, led_numbers * BIT_PER_ONE_ADDRESS_LED, &tx_config));
+    ESP_ERROR_CHECK(rmt_tx_wait_all_done(led_chan, portMAX_DELAY));
+    increase_brightness(&brightness, increase, &brightness_dir);
+    increase_brightness(&brightness_blue, increase * 2, &brightness_blue_dir);
+}
+
+void turnoff_cb(uint8_t * p_pixels, int led_index) {
+    set_pixel_color(p_pixels, led_index, 0, 0, 0);
+    ESP_ERROR_CHECK(rmt_transmit(led_chan, led_encoder, p_pixels, led_numbers * BIT_PER_ONE_ADDRESS_LED, &tx_config));
+    ESP_ERROR_CHECK(rmt_tx_wait_all_done(led_chan, portMAX_DELAY));
+}
+
 /**
  * Effects
 */
-void crimson_azure_flow(int chase_speed)
-{
-    uint8_t brightness = 0;
-    uint8_t brightness_dir = 1;
-    uint8_t brightness_blue = 0;
-    uint8_t brightness_blue_dir = 1;
-    uint8_t increase = 2;
-
-    while (1) {
-        for (int i = 0; i < led_numbers; i++) {
-            set_pixel_color(pled_strip_pixels, i, brightness, 0, brightness_blue);
-            ESP_ERROR_CHECK(rmt_transmit(led_chan, led_encoder, pled_strip_pixels, led_numbers * BIT_PER_ONE_ADDRESS_LED, &tx_config));
-            ESP_ERROR_CHECK(rmt_tx_wait_all_done(led_chan, portMAX_DELAY));
-            vTaskDelay(pdMS_TO_TICKS(chase_speed));
-        }
-        increase_brightness(&brightness, increase, &brightness_dir);
-        increase_brightness(&brightness_blue, increase * 2, &brightness_blue_dir);
-        vTaskDelay(pdMS_TO_TICKS(chase_speed));
-    }
+void crimson_azure_flow(int chase_speed, bool * enabled) {
+ while (* enabled) {
+    traverse_matrix(pled_strip_pixels, crimson_azure_flow_cb, chase_speed);
+ }
+ traverse_matrix(pled_strip_pixels, turnoff_cb, 0);
 }

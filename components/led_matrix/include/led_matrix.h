@@ -14,16 +14,25 @@
  */
 void led_strip_hsv2rgb(uint32_t h, uint32_t s, uint32_t v, uint32_t *r, uint32_t *g, uint32_t *b);
 
-void set_pixel_color(uint8_t * pPixels,  int offset, int r, int g, int b);
+void set_pixel_color(uint8_t * p_pixels,  int offset, int r, int g, int b);
 
 void increase_brightness(uint8_t *pval, const uint8_t increase, uint8_t *direction);
 
+/*
+ * Callback function which receive pixelsArray and led index (starts from 0)
+ */
+typedef void (*led_callback_t)(uint8_t * p_pixels, int led_index);
+
+void traverse_matrix(uint8_t * p_pixels, led_callback_t callback, int chase_speed);
+
+// void traverse_matrix_partial(led_callback_t callback, int width, int height, int offset_width, int offset_height);
+
 /**
- * Init function
-*/
-void init_matrix(int gpio_num, int led_per_col, int led_per_row);
+ * Init matrix or strip function
+ */
+void init_matrix(int gpio_num, int led_rows, int led_columns);
 
 /**
  * Effects
 */
-void crimson_azure_flow(int chase_speed);
+void crimson_azure_flow(int chase_speed, bool * enabled);
