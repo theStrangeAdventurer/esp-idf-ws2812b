@@ -13,34 +13,27 @@
 
 static const char *TAG = "led_matrix_component";
 
-// FIXME:Дописать функцию для цветового сдвига по HUE кругу
-// // Проход по всем рядам и плавное изменение цвета от рядя к ряду (Зацикленное)
-// while (1) {
-//     for (int i = 0; i < LED_PER_COL; i++) {
-//         hue = i * 360 / EXAMPLE_LED_NUMBERS + start_rgb;
-//         led_strip_hsv2rgb(hue, 100, BRIGHTNESS, &red, &green, &blue);
-//         for (int j = 0; j < (LED_PER_COL * PIXELS_PER_CELL); j+= PIXELS_PER_CELL) {
-//             int pixel = (i * LED_PER_COL * PIXELS_PER_CELL) + j;
-//             // printf("Led: %d\n", cell);
-//             printf("Color: r=%d, g=%d, b=%d\n", (int)red, (int)green, (int)blue);
-//             led_strip_pixels[pixel] = red;
-//             led_strip_pixels[pixel + 1] = green;
-//             led_strip_pixels[pixel + 2] = blue;
-//         }
-//         // Flush RGB values to LEDs
-//         // Каждое число 4 байта
-//         ESP_ERROR_CHECK(rmt_transmit(led_chan, led_encoder, led_strip_pixels, EXAMPLE_LED_NUMBERS * 4, &tx_config));
-        // ESP_ERROR_CHECK(rmt_tx_wait_all_done(led_chan, portMAX_DELAY));
-//         vTaskDelay(pdMS_TO_TICKS(EXAMPLE_CHASE_SPEED_MS));
-        // memset(led_strip_pixels, 0, sizeof(led_strip_pixels));
-//         ESP_ERROR_CHECK(rmt_transmit(led_chan, led_encoder, led_strip_pixels, EXAMPLE_LED_NUMBERS, &tx_config));
-//         ESP_ERROR_CHECK(rmt_tx_wait_all_done(led_chan, portMAX_DELAY));
-//         vTaskDelay(pdMS_TO_TICKS(EXAMPLE_CHASE_SPEED_MS));
-//     }
-//     start_rgb += 12;
-// }
+/**
+ * Global variables
+*/
+rmt_channel_handle_t led_chan = NULL;
+uint8_t * pled_strip_pixels = NULL;
+rmt_encoder_handle_t led_encoder = NULL;
+rmt_transmit_config_t tx_config = {
+    .loop_count = 0, // no transfer loop
+};
 
-// FIXME: Дописать функцию моргания светодиодов 0 -> 255 -> 0
+uint8_t brightness = 0;
+uint8_t brightness_dir = 1;
+uint8_t brightness_blue = 0;
+uint8_t brightness_blue_dir = 1;
+uint8_t increase = 2;
+
+int led_numbers = 0;
+int led_per_col = 0;
+int led_per_row = 0;
+int size = 0;
+
 void increase_brightness(uint8_t *pval, const uint8_t increase, uint8_t *direction) {
     // set_pixel_color(pPixels, 0, 0, brightness, 0);
     if ((*pval + increase) >= 50) {
@@ -68,65 +61,11 @@ void set_pixel_color(uint8_t * pPixels,  int offset, int r, int g, int b)
     pPixels[_offset + 2] = b;
 }
 
-void led_strip_hsv2rgb(uint32_t h, uint32_t s, uint32_t v, uint32_t *r, uint32_t *g, uint32_t *b)
-{
-    h %= 360; // h -> [0,360]
-    uint32_t rgb_max = v * 2.55f;
-    uint32_t rgb_min = rgb_max * (100 - s) / 100.0f;
-
-    uint32_t i = h / 60;
-    uint32_t diff = h % 60;
-
-    // RGB adjustment amount by hue
-    uint32_t rgb_adj = (rgb_max - rgb_min) * diff / 60;
-
-    switch (i) {
-    case 0:
-        *r = rgb_max;
-        *g = rgb_min + rgb_adj;
-        *b = rgb_min;
-        break;
-    case 1:
-        *r = rgb_max - rgb_adj;
-        *g = rgb_max;
-        *b = rgb_min;
-        break;
-    case 2:
-        *r = rgb_min;
-        *g = rgb_max;
-        *b = rgb_min + rgb_adj;
-        break;
-    case 3:
-        *r = rgb_min;
-        *g = rgb_max - rgb_adj;
-        *b = rgb_max;
-        break;
-    case 4:
-        *r = rgb_min + rgb_adj;
-        *g = rgb_min;
-        *b = rgb_max;
-        break;
-    default:
-        *r = rgb_max;
-        *g = rgb_min;
-        *b = rgb_max - rgb_adj;
-        break;
-    }
+void reset_matrix() {
+    memset(pled_strip_pixels, 0, size);
+    ESP_ERROR_CHECK(rmt_transmit(led_chan, led_encoder, pled_strip_pixels, size, &tx_config));
+    ESP_ERROR_CHECK(rmt_tx_wait_all_done(led_chan, portMAX_DELAY));
 }
-
-/**
- * Global variables
-*/
-rmt_channel_handle_t led_chan = NULL;
-uint8_t * pled_strip_pixels = NULL;
-rmt_encoder_handle_t led_encoder = NULL;
-rmt_transmit_config_t tx_config = {
-    .loop_count = 0, // no transfer loop
-};
-
-int led_numbers = 0;
-int led_per_col = 0;
-int led_per_row = 0;
 
 /**
  * Init function
@@ -136,7 +75,8 @@ void init_matrix(int gpio_num, int led_rows, int led_columns)
     led_per_col = led_columns;
     led_per_row = led_rows;
     led_numbers = led_per_col * led_per_row;
-    pled_strip_pixels = (uint8_t*)malloc(led_numbers * sizeof(uint8_t));
+    size = led_numbers * BIT_PER_ONE_ADDRESS_LED;
+    pled_strip_pixels = (uint8_t*)malloc(size);
 
     rmt_tx_channel_config_t tx_chan_config = {
         .clk_src = 4, // select source clock ?? I don't know what mean that number
@@ -160,8 +100,7 @@ void init_matrix(int gpio_num, int led_rows, int led_columns)
     ESP_ERROR_CHECK(rmt_enable(led_chan));
 
     ESP_LOGI(TAG, "Start LED rainbow chase");
-    
-    memset(pled_strip_pixels, 0, led_numbers * sizeof(uint8_t)); // FIXME: добавить метод destroy с освобождением этой памяти
+    reset_matrix();
 }
 
 void traverse_matrix(uint8_t * p_pixels, led_callback_t callback, int chase_speed) {
@@ -175,24 +114,12 @@ void traverse_matrix(uint8_t * p_pixels, led_callback_t callback, int chase_spee
     }
 }
 
-uint8_t brightness = 0;
-uint8_t brightness_dir = 1;
-uint8_t brightness_blue = 0;
-uint8_t brightness_blue_dir = 1;
-uint8_t increase = 2;
-
 void crimson_azure_flow_cb(uint8_t * p_pixels, int led_index) {
     set_pixel_color(p_pixels, led_index, brightness, 0, brightness_blue);
     ESP_ERROR_CHECK(rmt_transmit(led_chan, led_encoder, p_pixels, led_numbers * BIT_PER_ONE_ADDRESS_LED, &tx_config));
     ESP_ERROR_CHECK(rmt_tx_wait_all_done(led_chan, portMAX_DELAY));
     increase_brightness(&brightness, increase, &brightness_dir);
     increase_brightness(&brightness_blue, increase * 2, &brightness_blue_dir);
-}
-
-void turnoff_cb(uint8_t * p_pixels, int led_index) {
-    set_pixel_color(p_pixels, led_index, 0, 0, 0);
-    ESP_ERROR_CHECK(rmt_transmit(led_chan, led_encoder, p_pixels, led_numbers * BIT_PER_ONE_ADDRESS_LED, &tx_config));
-    ESP_ERROR_CHECK(rmt_tx_wait_all_done(led_chan, portMAX_DELAY));
 }
 
 /**
@@ -202,5 +129,67 @@ void crimson_azure_flow(int chase_speed, bool * enabled) {
  while (* enabled) {
     traverse_matrix(pled_strip_pixels, crimson_azure_flow_cb, chase_speed);
  }
- traverse_matrix(pled_strip_pixels, turnoff_cb, 0);
+}
+
+/* Torch mode starts here ... */
+uint8_t torch_bright = 0;
+
+void torch_warn(uint8_t * p_pixels, int led_index) {
+    uint8_t green = torch_bright / 1.7;
+    uint8_t blue = green / 3;
+    set_pixel_color(p_pixels, led_index, torch_bright, green, blue);
+    ESP_ERROR_CHECK(rmt_transmit(led_chan, led_encoder, p_pixels, led_numbers * BIT_PER_ONE_ADDRESS_LED, &tx_config));
+    ESP_ERROR_CHECK(rmt_tx_wait_all_done(led_chan, portMAX_DELAY));
+}
+
+void torch_default(uint8_t * p_pixels, int led_index) {
+    set_pixel_color(p_pixels, led_index, torch_bright, torch_bright, torch_bright);
+    ESP_ERROR_CHECK(rmt_transmit(led_chan, led_encoder, p_pixels, led_numbers * BIT_PER_ONE_ADDRESS_LED, &tx_config));
+    ESP_ERROR_CHECK(rmt_tx_wait_all_done(led_chan, portMAX_DELAY));
+}
+
+void torch(bool * enabled, int * level, int * mode) {
+    uint8_t increase = 5;
+    
+    while (* enabled) {
+        switch (*level)
+        {
+            case 0:
+                torch_bright = 0;
+                break;
+            case 1:
+                if (torch_bright < 255) {
+                    torch_bright += increase;
+                } else {
+                    torch_bright -= increase;
+                }
+                break;
+            case 2:
+                if (torch_bright < 100) {
+                    torch_bright += increase;
+                } else {
+                    torch_bright -= increase;
+                }
+                break;
+            case 3:
+                if (torch_bright < 20) {
+                    torch_bright += increase;
+                } else {
+                    torch_bright -= increase;
+                }
+                break;
+        }
+
+        switch (*mode)
+        {
+            case 0:
+                traverse_matrix(pled_strip_pixels, torch_default, 0);
+                break;
+            case 1:
+                traverse_matrix(pled_strip_pixels, torch_warn, 0);
+                break;
+        }
+    }
+
+    reset_matrix();
 }
