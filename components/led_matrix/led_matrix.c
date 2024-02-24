@@ -125,8 +125,8 @@ void crimson_azure_flow_cb(uint8_t * p_pixels, int led_index) {
 /**
  * Effects
 */
-void crimson_azure_flow(int chase_speed, bool * enabled) {
- while (* enabled) {
+void crimson_azure_flow(int chase_speed) {
+ while (1) {
     traverse_matrix(pled_strip_pixels, crimson_azure_flow_cb, chase_speed);
  }
 }
@@ -148,11 +148,11 @@ void torch_default(uint8_t * p_pixels, int led_index) {
     ESP_ERROR_CHECK(rmt_tx_wait_all_done(led_chan, portMAX_DELAY));
 }
 
-void torch(bool * enabled, int * level, int * mode) {
+void torch(int level, int mode) {
     uint8_t increase = 5;
     
-    while (* enabled) {
-        switch (*level)
+    while (1) {
+        switch (level)
         {
             case 0:
                 torch_bright = 0;
@@ -180,7 +180,7 @@ void torch(bool * enabled, int * level, int * mode) {
                 break;
         }
 
-        switch (*mode)
+        switch (mode)
         {
             case 0:
                 traverse_matrix(pled_strip_pixels, torch_default, 0);
@@ -190,6 +190,4 @@ void torch(bool * enabled, int * level, int * mode) {
                 break;
         }
     }
-
-    reset_matrix();
 }

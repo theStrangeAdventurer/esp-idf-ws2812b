@@ -9,6 +9,24 @@
         "led_matrix.h": "c",
         "rmt_encoder.h": "c",
         "esp_check.h": "c",
-        "esp_log.h": "c"
-    }
+        "esp_log.h": "c",
+        "gpio.h": "c",
+        "vector": "c",
+        "__assert": "c",
+        "__config": "c",
+        "cstdio": "c",
+        "cwchar": "c",
+        "fstream": "c",
+        "type_traits": "c",
+        "unordered_map": "c",
+        "*.inc": "c",
+        "exception": "c",
+        "algorithm": "c",
+        "button.h": "c",
+        "queue.h": "c",
+        "random": "c"
+    },
+    "cmake.sourceDirectory": "${workspaceFolder}/led_strip",
+    "cmake.buildDirectory": "${workspaceFolder}/led_strip/build",
+    "C_Cpp.default.compilerPath": "/usr/bin/gcc"
 }

@@ -4,7 +4,9 @@
             "name": "Mac",
             "includePath": [
                 "${workspaceFolder}/**",
-                "~/esp/esp-idf/components/**"
+                "~/esp/esp-idf/components/**",
+                "~/esp/esp-idf/components/freertos/**",
+                "~/esp/esp-idf/**"
             ],
             "defines": [],
             "macFrameworkPath": [

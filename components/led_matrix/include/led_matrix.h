@@ -33,6 +33,8 @@ void init_matrix(int gpio_num, int led_rows, int led_columns);
 /**
  * Effects
 */
-void crimson_azure_flow(int chase_speed, bool * enabled);
+void crimson_azure_flow(int chase_speed);
 
-void torch(bool * enabled, int * level, int * mode);
+void torch(int level, int mode);
+
+void reset_matrix();
